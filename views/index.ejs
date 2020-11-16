@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" href="images/favicon.ico"/>
+    <title>CapSpatial Horizon</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <script src='https://unpkg.com/@turf/turf/turf.min.js'></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v1.10.0/mapbox-gl.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.5.1/mapbox-gl-geocoder.min.js"></script>
+    <script src='https://api.mapbox.com/mapbox.js/plugins/turf/v2.0.2/turf.min.js'></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v1.10.0/mapbox-gl.css" rel="stylesheet" />
+    <link rel="stylesheet"
+        href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.5.1/mapbox-gl-geocoder.css"
+        type="text/css" />
+    <script src="https://api.tiles.mapbox.com/mapbox.js/plugins/turf/v3.0.11/turf.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.2.0/mapbox-gl-draw.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.2.0/mapbox-gl-draw.css" type="text/css" />
+
+    <!-- include jQuery library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>
+
+    <!-- include FilePond library -->
+    <script src="https://unpkg.com/filepond/dist/filepond.min.js"></script>
+
+    <!-- include FilePond plugins -->
+    <script src="https://unpkg.com/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.min.js"></script>
+
+    <!-- include FilePond jQuery adapter -->
+    <script src="https://unpkg.com/jquery-filepond/filepond.jquery.js"></script>
+    <link href="https://unpkg.com/filepond/dist/filepond.css" rel="stylesheet">
+    <script src="https://unpkg.com/filepond/dist/filepond.js"></script>
+    <!-- <link href="/stylesheets/style.css" rel="stylesheet" /> -->
+
+    <style>
+        #menu {
+        position: absolute;
+        background: #fff;
+        padding: 10px;
+        font-family: 'Open Sans', sans-serif;
+        }
+        #map {
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        bottom: 0;
+        }
+        #upload {
+        position: absolute;
+        margin: 0 100px 0 400px;
+        background: #fff;
+        padding: 10px;
+        font-family: 'Open Sans', sans-serif;
+        }
+        #refresh {
+        position: absolute;
+        margin: 0 100px 0 900px;
+        background: #fff;
+        padding: 10px;
+        font-family: 'Open Sans', sans-serif;
+        }
+        
+        /* The Modal (background) */
+        .modal {
+        display: none; /* Hidden by default */
+        box-sizing: border-box;
+        color: #fff;
+        left: 50%;
+        min-width: 645px;
+        max-width: 700px;
+        padding: 1.875em;
+        position: fixed;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1110;
+        -webkit-animation-name: fadeIn; /* Fade in the background */
+        -webkit-animation-duration: 0.4s;
+        animation-name: fadeIn;
+        animation-duration: 0.4s
+        }
+
+        /* Modal Content */
+        .modal-content {
+        position: fixed;
+        bottom: 0;
+        background-color: #fefefe;
+        width: 100%;
+        -webkit-animation-name: slideIn;
+        -webkit-animation-duration: 0.4s;
+        animation-name: slideIn;
+        animation-duration: 0.4s
+        }
+
+        .close:hover,
+        .close:focus {
+        color: #000;
+        text-decoration: none;
+        cursor: pointer;
+        }
+
+        .modal-header {
+        padding: 1px 16px;
+        background-color: #5cb8b09f;
+        color: white;
+        }
+
+        .modal-body {padding: 2px 5px;}
+
+        .modal-footer {
+        padding: 1px 5px;
+        background-color: #5cb8b09f;
+        color: white;
+        }
+
+        /* Add Animation */
+        @-webkit-keyframes slideIn {
+        from {bottom: -300px; opacity: 0} 
+        to {bottom: 0; opacity: 1}
+        }
+
+        @keyframes slideIn {
+        from {bottom: -300px; opacity: 0}
+        to {bottom: 0; opacity: 1}
+        }
+
+        @-webkit-keyframes fadeIn {
+        from {opacity: 0} 
+        to {opacity: 1}
+        }
+
+        @keyframes fadeIn {
+        from {opacity: 0} 
+        to {opacity: 1}
+        }
+
+        .calculation-box {
+        height: 75px;
+        width: 150px;
+        position: absolute;
+        bottom: 40px;
+        left: 10px;
+        background-color: rgba(255, 255, 255, 0.9);
+        padding: 15px;
+        text-align: center;
+        }
+        
+        p {
+        font-family: 'Open Sans';
+        margin: 0;
+        font-size: 13px;
+        }
+        .calculation-box {
+            display: none;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class="calculation-box" id="draw-polygon">
+        <p>Area of polygon drawn using the draw tools is : </p>
+        <div id="calculated-area"></div>
+    </div>
+    <div id="menu">
+        <input id="streets-v11" type="radio" name="rtoggle" value="streets" />
+        <label for="streets-v11">streets</label>
+
+        <input id="light-v10" type="radio" name="rtoggle" value="light" />
+        <label for="light-v10">light</label>
+
+        <input id="dark-v10" type="radio" name="rtoggle" value="dark" />
+        <label for="dark-v10">dark</label>
+
+        <input id="outdoors-v11" type="radio" name="rtoggle" value="outdoors" />
+        <label for="outdoors-v11">outdoors</label>
+
+        <input id="satellite-v9" type="radio" name="rtoggle" value="satellite" checked="checked"/>
+        <label for="satellite-v9">satellite</label>
+    </div>
+
+    <div id="upload">
+        <button id="myBtn">Upload GeoJSON</button>
+    </div>
+
+    <!-- The Modal -->
+    <div id="myModal" class="modal">
+        <input id="uploadFile" type="file" class="my-pond" name="file" required/>
+    </div>
+
+    <div id="refresh">
+        <button onClick="window.location.reload()">Reset</button>
+    </div>
+
+    <script>
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoia2FwaWxncnYiLCJhIjoiY2s3MXBlczU4MDhzdTNvbXdodmE0ZWlpcSJ9.7_douVAa6rvxt-cCHWsq2Q'
+        const map = window.map = new mapboxgl.Map({
+            container: "map",
+            zoom: 4,
+            center: [77, 22],
+            style: 'mapbox://styles/mapbox/satellite-v9',
+        });
+
+        var layerList = document.getElementById('menu');
+        var inputs = layerList.getElementsByTagName('input');
+        var mapSource = new Function;
+        var mapLayer = new Function;
+        
+        function switchLayer(layer) {
+            var layerId = layer.target.id;
+            map.setStyle('mapbox://styles/mapbox/' + layerId);
+            map.on('style.load', function () {
+                mapSource();
+                mapLayer();
+            });
+        }
+        
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].onclick = switchLayer;
+        }
+
+        map.addControl(new mapboxgl.FullscreenControl(), 'bottom-right');
+
+        /* given a query in the form "lng, lat" or "lat, lng" returns the matching
+        * geographic coordinate(s) as search results in carmen geojson format,
+        * https://github.com/mapbox/carmen/blob/master/carmen-geojson.md
+        */
+        var coordinatesGeocoder = function (query) {
+        // match anything which looks like a decimal degrees coordinate pair
+        var matches = query.match(/^[ ]*(?:Lat: )?(-?\d+\.?\d*)[, ]+(?:Lng: )?(-?\d+\.?\d*)[ ]*$/i);
+        if (!matches) {
+            return null;
+        }
+        
+        function coordinateFeature(lng, lat) {
+            return {
+                center: [lng, lat],
+                geometry: {
+                    type: 'Point',
+                    coordinates: [lng, lat]
+                },
+                place_name: 'Lat: ' + lat + ' Lng: ' + lng,
+                place_type: ['coordinate'],
+                properties: {},
+                type: 'Feature'
+            };
+        }
+        
+        var coord1 = Number(matches[1]);
+        var coord2 = Number(matches[2]);
+        var geocodes = [];
+        
+        if (coord1 < -90 || coord1 > 90) {
+        // must be lng, lat
+        geocodes.push(coordinateFeature(coord1, coord2));
+        }
+        
+        if (coord2 < -90 || coord2 > 90) {
+        // must be lat, lng
+        geocodes.push(coordinateFeature(coord2, coord1));
+        }
+        
+        if (geocodes.length === 0) {
+        // else could be either lng, lat or lat, lng
+        geocodes.push(coordinateFeature(coord1, coord2));
+        geocodes.push(coordinateFeature(coord2, coord1));
+        }
+        
+        return geocodes;
+        };
+        
+        map.addControl(
+        new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            localGeocoder: coordinatesGeocoder,
+            zoom: 17,
+            placeholder: 'Try: 77, 12 or Koramangala, KA',
+            mapboxgl: mapboxgl
+            })
+        );
+
+        function fetchJSON(url) {
+            return fetch(url)
+                .then(function(response) {
+                return response.json();
+            });
+        }
+
+        // function submitUpload() {
+
+        //     var xhttp = new XMLHttpRequest();
+        //     var url = 'http://localhost:8081/upload';
+        //     let file = document.getElementById("uploadFile").files[0];  // file from input
+        //     let formData = new FormData();
+
+        //     xhttp.open('POST', url, true);
+        //     formData.append("file", file);
+
+        //     xhttp.onreadystatechange = function() {//Call a function when the state changes.
+        //         if(xhttp.readyState == 4 && xhttp.status == 200) {
+        //             var data = xhttp.responseText;
+        //             var jsonResponse = JSON.parse(data);
+        //             console.log(jsonResponse);
+
+        //             var data = fetchJSON('http://localhost:8081/files/'+file.name)
+        //                 .then(function(data) {
+
+        //                     var type = data.features[0].geometry.type.toLowerCase();
+        //                     if (type = 'point') { type = 'circle' }
+        //                     console.log(type);
+        //                     var bbox = turf.extent(data);
+
+        //                     mapSource = function() {
+        //                         window.map.addSource(file.name, {
+        //                             type: 'geojson',
+        //                             data: 'http://localhost:8081/files/'+file.name
+        //                         });
+        //                     }
+
+        //                     mapLayer = function() {
+        //                         window.map.addLayer({
+        //                             'id': file.name+Date.now(),
+        //                             'type': type,
+        //                             'source': file.name,
+        //                             'paint': {
+        //                                 'circle-radius': 3,
+        //                                 'circle-color': '#007cbf'
+        //                             }
+        //                         });
+        //                     }
+
+        //                     mapSource();
+        //                     mapLayer();
+
+        //                     window.map.fitBounds(bbox, {padding: 20});
+        //                     var modal = document.getElementById("myModal");
+        //                     modal.style.display = "none";
+        //             });
+        //         }
+        //     }
+        //     xhttp.send(formData);
+        // }
+
+        // Get the modal
+        var modal = document.getElementById("myModal");
+
+        // Get the button that opens the modal
+        var btn = document.getElementById("myBtn");
+
+        // Get the <span> element that closes the modal
+        var span = document.getElementsByClassName("close")[0];
+
+        // When the user clicks the button, open the modal 
+        btn.onclick = function() {
+            modal.style.display = "block";
+        }
+
+        // When the user clicks anywhere outside of the modal, close it
+        window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+            }
+        }
+
+        $(function(){
+  
+        // First register any plugins
+        $.fn.filepond.registerPlugin(FilePondPluginImagePreview);
+
+        // Turn input element into a pond
+        $('.my-pond').filepond();
+
+        // Set allowMultiple property to true
+        $('.my-pond').filepond('allowMultiple', true);
+
+        // Listen for addfile event
+        $('.my-pond').on('FilePond:addfile', function(e) {
+            console.log('file added event', e);
+        });
+
+        $.fn.filepond.setOptions({
+            server: {
+                process:(fieldName, file, metadata, load, error, progress, abort, transfer, options) => {
+
+                    // fieldName is the name of the input field
+                    // file is the actual file object to send
+                    const formData = new FormData();
+                    formData.append('file', file, file.name);
+
+                    const request = new XMLHttpRequest();
+                    request.open('POST', 'http://localhost:8081/upload', true);
+
+                    // Should call the progress method to update the progress to 100% before calling load
+                    // Setting computable to false switches the loading indicator to infinite mode
+                    request.upload.onprogress = (e) => {
+                        progress(e.lengthComputable, e.loaded, e.total);
+                    };
+
+                    // Should call the load method when done and pass the returned server file id
+                    // this server file id is then used later on when reverting or restoring a file
+                    // so your server knows which file to return without exposing that info to the client
+                    request.onload = function() {
+                        if (request.status >= 200 && request.status < 300) {
+                            // the load method accepts either a string (id) or an object
+                            load(request.responseText);
+                            var data = fetchJSON('http://localhost:8081/files/'+file.name)
+                                .then(function(data) {
+
+                                    var type = data.features[0].geometry.type.toLowerCase();
+                                    if (type = 'point') { type = 'circle' }
+                                    console.log(type);
+                                    var bbox = turf.extent(data);
+
+                                    mapSource = function() {
+                                        window.map.addSource(file.name, {
+                                            type: 'geojson',
+                                            data: 'http://localhost:8081/files/'+file.name
+                                        });
+                                    }
+
+                                    mapLayer = function() {
+                                        window.map.addLayer({
+                                            'id': file.name+Date.now(),
+                                            'type': type,
+                                            'source': file.name,
+                                            'paint': {
+                                                'circle-radius': 3,
+                                                'circle-color': '#007cbf'
+                                            }
+                                        });
+                                    }
+
+                                    mapSource();
+                                    mapLayer();
+
+                                    window.map.fitBounds(bbox, {padding: 20});
+                                    var modal = document.getElementById("myModal");
+                                    modal.style.display = "none";
+                                });
+                        }
+                        else {
+                            // Can call the error method if something is wrong, should exit after
+                            error('oh no');
+                        }
+                    };
+
+                    request.send(formData);
+                    
+                    // Should expose an abort method so the request can be cancelled
+                    return {
+                        abort: () => {
+                            // This function is entered if the user has tapped the cancel button
+                            request.abort();
+
+                            // Let FilePond know the request has been cancelled
+                            abort();
+                        }
+                    };
+                }
+            }
+        });
+
+        // Manually add a file using the addfile method
+        // $('.my-pond').first().filepond('addFile', 'index.html').then(function(file){
+        //     console.log('file added', file);
+        // });
+
+        });
+
+        var draw = new MapboxDraw({
+            displayControlsDefault: false,
+            controls: {
+                polygon: true,
+                trash: true
+            }
+        });
+        map.addControl(draw);
+        
+        map.on('draw.create', updateArea);
+        map.on('draw.delete', updateArea);
+        map.on('draw.update', updateArea);
+        
+        function updateArea(e) {
+            var data = draw.getAll();
+            var answer = document.getElementById('calculated-area');
+            var calculationBox = document.getElementById("draw-polygon");
+            calculationBox.style.display = "block";
+            if (data.features.length > 0) {
+                var area = turf.area(data);
+                // restrict to area to 2 decimal points
+                var rounded_area = Math.round(area * 100) / 100;
+                answer.innerHTML = '<p><strong>' + rounded_area + '</strong></p><p>square meters</p>';
+            } else {
+            answer.innerHTML = '';
+            if (e.type !== 'draw.delete')
+            alert('Use the draw tools to draw a polygon!');
+            }
+            if (e.type == 'draw.delete') {
+                calculationBox.style.display = "none";
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>

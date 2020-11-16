@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="utf-8" />
+    <title>CapSpatial Horizon</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <script src='https://unpkg.com/@turf/turf/turf.min.js'></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v1.10.0/mapbox-gl.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.5.1/mapbox-gl-geocoder.min.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v1.10.0/mapbox-gl.css" rel="stylesheet" />
+    <link rel="stylesheet"
+        href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.5.1/mapbox-gl-geocoder.css"
+        type="text/css" />
+
+    <style>
+        #menu {
+            position: absolute;
+            background: #fff;
+            padding: 10px;
+            font-family: 'Open Sans', sans-serif;
+        }
+        #map {
+            position: absolute;
+            top: 0;
+            right: 0;
+            left: 0;
+            bottom: 0;
+        }
+        #upload {
+            position: absolute;
+            margin: 0 100px 0 400px;
+            background: #fff;
+            padding: 10px;
+            font-family: 'Open Sans', sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div id="menu">
+        <input id="streets-v11" type="radio" name="rtoggle" value="streets" />
+        <label for="streets-v11">streets</label>
+
+        <input id="light-v10" type="radio" name="rtoggle" value="light" />
+        <label for="light-v10">light</label>
+
+        <input id="dark-v10" type="radio" name="rtoggle" value="dark" />
+        <label for="dark-v10">dark</label>
+
+        <input id="outdoors-v11" type="radio" name="rtoggle" value="outdoors" />
+        <label for="outdoors-v11">outdoors</label>
+
+        <input id="satellite-v9" type="radio" name="rtoggle" value="satellite" checked="checked"/>
+        <label for="satellite-v9">satellite</label>
+    </div>
+    <div id="upload">
+		
+		<form action="/uploadFile" enctype="multipart/form-data" method="POST"> 
+	
+			<span>Upload Geojson:</span> 
+			<input type="file" name="fileUpload" required/>
+			<input type="submit" value="submit">
+		</form>
+    </div>
+
+    <script>
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoia2FwaWxncnYiLCJhIjoiY2s3MXBlczU4MDhzdTNvbXdodmE0ZWlpcSJ9.7_douVAa6rvxt-cCHWsq2Q'
+        const map = window.map = new mapboxgl.Map({
+            container: "map",
+            zoom: 4,
+            center: [77, 22],
+            // style: 'mapbox://styles/mapbox/streets-v10'
+            style: 'mapbox://styles/mapbox/satellite-v9',
+        });
+
+        var layerList = document.getElementById('menu');
+        var inputs = layerList.getElementsByTagName('input');
+        
+        function switchLayer(layer) {
+            var layerId = layer.target.id;
+            map.setStyle('mapbox://styles/mapbox/' + layerId);
+        }
+        
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].onclick = switchLayer;
+        }
+
+        map.addControl(new mapboxgl.FullscreenControl(), 'bottom-right');
+
+        // map.addControl(
+        //     new MapboxGeocoder({
+        //         accessToken: mapboxgl.accessToken,
+        //         mapboxgl: mapboxgl
+        //     })
+        // );
+
+        /* given a query in the form "lng, lat" or "lat, lng" returns the matching
+        * geographic coordinate(s) as search results in carmen geojson format,
+        * https://github.com/mapbox/carmen/blob/master/carmen-geojson.md
+        */
+        var coordinatesGeocoder = function (query) {
+        // match anything which looks like a decimal degrees coordinate pair
+        var matches = query.match(/^[ ]*(?:Lat: )?(-?\d+\.?\d*)[, ]+(?:Lng: )?(-?\d+\.?\d*)[ ]*$/i);
+        if (!matches) {
+            return null;
+        }
+        
+        function coordinateFeature(lng, lat) {
+            return {
+                center: [lng, lat],
+                geometry: {
+                    type: 'Point',
+                    coordinates: [lng, lat]
+                },
+                place_name: 'Lat: ' + lat + ' Lng: ' + lng,
+                place_type: ['coordinate'],
+                properties: {},
+                type: 'Feature'
+            };
+        }
+        
+        var coord1 = Number(matches[1]);
+        var coord2 = Number(matches[2]);
+        var geocodes = [];
+        
+        if (coord1 < -90 || coord1 > 90) {
+        // must be lng, lat
+        geocodes.push(coordinateFeature(coord1, coord2));
+        }
+        
+        if (coord2 < -90 || coord2 > 90) {
+        // must be lat, lng
+        geocodes.push(coordinateFeature(coord2, coord1));
+        }
+        
+        if (geocodes.length === 0) {
+        // else could be either lng, lat or lat, lng
+        geocodes.push(coordinateFeature(coord1, coord2));
+        geocodes.push(coordinateFeature(coord2, coord1));
+        }
+        
+        return geocodes;
+        };
+        
+        map.addControl(
+        new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            localGeocoder: coordinatesGeocoder,
+            zoom: 17,
+            placeholder: 'Try: 77, 12 or Koramangala, KA',
+            mapboxgl: mapboxgl
+            })
+        );
+
+        map.on('load', function () {
+            map.addSource('karnataka', {
+                type: 'geojson',
+                data: 'KA.geojson'
+                });
+            map.addLayer({
+                'id': 'karnataka',
+                'type': 'fill',
+                'source': 'karnataka',
+                'layout': {},
+                'paint': {
+                'fill-color': '#fff',
+                'fill-opacity': 0.5
+                    }
+                });
+            });
+
+    </script>
+
+</body>
+
+</html>
