@@ -411,9 +411,16 @@
                                 .then(function(data) {
 
                                     var type = data.features[0].geometry.type.toLowerCase();
-                                    if (type = 'point') { type = 'circle' }
                                     console.log(type);
-                                    var bbox = turf.extent(data);
+                                    if (type == 'point') { 
+                                        geomType = 'circle'
+                                        paint = {'circle-radius': 3, 'circle-color': '#007cbf'}
+                                    } else {
+                                        geomType = 'fill'
+                                        paint = {'fill-color': '#088', 'fill-opacity': 0.8}
+                                    }
+                                    console.log(type);
+                                    var bbox = turf.bbox(data);
 
                                     mapSource = function() {
                                         window.map.addSource(file.name, {
@@ -425,12 +432,13 @@
                                     mapLayer = function() {
                                         window.map.addLayer({
                                             'id': file.name+Date.now(),
-                                            'type': type,
+                                            'type': geomType,
                                             'source': file.name,
-                                            'paint': {
-                                                'circle-radius': 3,
-                                                'circle-color': '#007cbf'
-                                            }
+                                            'paint': paint
+                                                // 'circle-radius': 3,
+                                                // 'circle-color': '#007cbf'
+                                                // 'fill-color': '#088',
+                                                // 'fill-opacity': 0.8
                                         });
                                     }
 
