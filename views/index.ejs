@@ -410,10 +410,26 @@
                             var data = fetchJSON('http://localhost:8081/files/'+file.name)
                                 .then(function(data) {
 
+                                    layerId = file.name+Date.now();
+                                    console.log(layerId)
+                                    console.log(data)
                                     var type = data.features[0].geometry.type.toLowerCase();
-                                    if (type = 'point') { type = 'circle' }
+                                    console.log("original type => ", type)
+                                    if (type == 'point') { 
+                                        type = 'circle'
+                                        paint = {
+                                                'circle-radius': 10,
+                                                'circle-color': '#d93025'
+                                            }
+                                    } else {
+                                        type = 'fill'
+                                        paint = {
+                                                'fill-color': '#0080ff',
+                                                'fill-opacity': 0.5
+                                            }
+                                    }
                                     console.log(type);
-                                    var bbox = turf.extent(data);
+                                    var bbox = turf.bbox(data);
 
                                     mapSource = function() {
                                         window.map.addSource(file.name, {
@@ -424,13 +440,44 @@
 
                                     mapLayer = function() {
                                         window.map.addLayer({
-                                            'id': file.name+Date.now(),
+                                            'id': layerId,
                                             'type': type,
                                             'source': file.name,
+                                            'paint': paint
+                                        });
+
+                                        // Add a black outline around the polygon.
+                                        window.map.addLayer({
+                                            'id': 'outline',
+                                            'type': 'line',
+                                            'source': file.name,
+                                            'layout': {},
                                             'paint': {
-                                                'circle-radius': 3,
-                                                'circle-color': '#007cbf'
+                                            'line-color': '#000',
+                                            'line-width': 3
                                             }
+                                        });
+
+                                        // When a click event occurs on a feature in the states layer,
+                                        // open a popup at the location of the click, with description
+                                        // HTML from the click event's properties.
+                                        window.map.on('click', layerId, (e) => {
+                                            new mapboxgl.Popup()
+                                            .setLngLat(e.lngLat)
+                                            .setHTML(e.features[0].properties.name_en)
+                                            .addTo(map);
+                                        });
+                                        
+                                        // Change the cursor to a pointer when
+                                        // the mouse is over the states layer.
+                                        window.map.on('mouseenter', layerId, () => {
+                                        window.map.getCanvas().style.cursor = 'pointer';
+                                        });
+                                        
+                                        // Change the cursor back to a pointer
+                                        // when it leaves the states layer.
+                                        window.map.on('mouseleave', layerId, () => {
+                                        window.map.getCanvas().style.cursor = '';
                                         });
                                     }
 
